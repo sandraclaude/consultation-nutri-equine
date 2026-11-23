@@ -148,7 +148,7 @@
       <p class="note">Quantité en kg par repas, nombre de repas par jour.</p>
     </div>
 
-    <div class="carte" id="carte-photos">
+    <div class="carte">
       <h2>Photos</h2>
       <div id="photos"></div>
       <div class="actions">
@@ -217,7 +217,6 @@
   'use strict';
 
   var VERSION = '1.1';
-  var PHOTOS_ACTIVES = false; // true = carte Photos visible, false = fiche sans photos
   var CATEGORIES = ['Entretien', 'Poulain', 'Senior', 'Jument gestante', 'Autre'];
   var SEXES = ['', 'Hongre', 'Jument', 'Étalon'];
   var K_FICHES = 'ce_fiches_v1', K_CFG = 'ce_cfg_v1', K_BROUILLON = 'ce_brouillon_v1';
@@ -447,7 +446,6 @@
   }
 
   function chargerPhotosBrouillon() {
-    if (!PHOTOS_ACTIVES) return;
     dbParFiche('brouillon').then(function (l) {
       photosBrouillon = (l || []).sort(function (a, b) { return a.ts - b.ts; });
       rendrePhotos();
@@ -628,7 +626,7 @@
   function afficheReglages() {
     var c = cfg();
     $('#g-url').value = c.url; $('#g-cle').value = c.cle; $('#g-div').value = String(c.diviseur).replace('.', ',');
-    $('#version').textContent = 'Version ' + VERSION + (PHOTOS_ACTIVES ? '' : ' (sans photos)');
+    $('#version').textContent = 'Version ' + VERSION;
   }
   $('#btn-cfg').addEventListener('click', function () {
     var d = num($('#g-div').value);
@@ -660,7 +658,6 @@
   });
 
   /* ---------- Démarrage ---------- */
-  if (!PHOTOS_ACTIVES) $('#carte-photos').hidden = true;
   restaurerBrouillon(); chargerPhotosBrouillon();
   affichePoids(); majListeAliments(); rendreListe(); majReseau(); afficheReglages();
   if (navigator.storage && navigator.storage.persist) { navigator.storage.persist().catch(function () {}); }
