@@ -1,6 +1,6 @@
 {
-  "name": "Consultation équine",
-  "short_name": "Consult. équine",
+  "name": "Consultation Nutri",
+  "short_name": "Consult Nutri",
   "description": "Fiche de consultation en nutrition équine, utilisable sans réseau.",
   "lang": "fr",
   "start_url": "./index.html",
