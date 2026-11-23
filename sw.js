@@ -1,7 +1,7 @@
 // Service worker : garde l'application en cache pour qu'elle s'ouvre sans réseau.
 // Quand tu modifies un fichier de l'appli, change le numéro de version ci-dessous.
-var CACHE = 'consultation-equine-v1';
-var FICHIERS = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png'];
+var CACHE = 'consultation-equine-v3';
+var FICHIERS = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './logo.png'];
 
 self.addEventListener('install', function (e) {
   e.waitUntil(caches.open(CACHE).then(function (c) { return c.addAll(FICHIERS); }).then(function () { return self.skipWaiting(); }));
