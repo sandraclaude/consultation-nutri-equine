@@ -100,14 +100,14 @@
       </div>
       <label for="c-race">Race</label>
       <input id="c-race" data-k="race" autocomplete="off">
-      <label for="c-act">Activité</label>
-      <input id="c-act" data-k="activite" list="liste-activites" autocomplete="off" placeholder="Loisir, sport, élevage…">
-      <datalist id="liste-activites">
-        <option value="Repos"><option value="Loisir"><option value="Sport léger">
-        <option value="Sport intensif"><option value="Élevage"><option value="Retraite">
-      </datalist>
+      <label for="c-act">Niveau d'activité (travail)</label>
+      <select id="c-act" data-k="activite"></select>
       <label for="c-cat">Catégorie (pour les besoins)</label>
       <select id="c-cat" data-k="categorie"></select>
+      <div id="bloc-mois" hidden>
+        <label for="c-mois" id="lab-mois">Mois</label>
+        <input id="c-mois" data-k="mois" inputmode="numeric" autocomplete="off">
+      </div>
     </div>
 
     <div class="carte">
@@ -148,7 +148,7 @@
       <p class="note">Quantité en kg par repas, nombre de repas par jour.</p>
     </div>
 
-    <div class="carte">
+    <div class="carte" id="carte-photos">
       <h2>Photos</h2>
       <div id="photos"></div>
       <div class="actions">
@@ -216,8 +216,27 @@
 (function () {
   'use strict';
 
-  var VERSION = '1.1';
-  var CATEGORIES = ['Entretien', 'Poulain', 'Senior', 'Jument gestante', 'Autre'];
+  var VERSION = '1.2';
+  var PHOTOS_ACTIVES = true; // true = carte Photos visible, false = fiche sans photos
+  // Catégories du NRC (stade physiologique) : [valeur enregistrée, libellé affiché]
+  var CATEGORIES = [
+    ['Adulte', 'Adulte (entretien ou travail)'],
+    ['Jument gestante', 'Jument gestante'],
+    ['Jument allaitante', 'Jument allaitante'],
+    ['Poulain / jeune', 'Poulain / jeune en croissance'],
+    ['Étalon', 'Étalon reproducteur'],
+    ['Senior', 'Senior (20 ans et plus)'],
+    ['Autre', 'Autre']
+  ];
+  // Niveaux d'exercice du NRC 2007
+  var ACTIVITES = [
+    ['', '—'],
+    ['Repos', 'Repos (aucun travail)'],
+    ['Léger', 'Léger : 1 à 3 h par semaine, pas et trot'],
+    ['Modéré', 'Modéré : 3 à 5 h par semaine, trot, un peu de galop, saut'],
+    ['Intense', 'Intense : 4 à 5 h par semaine, galop, saut, concours'],
+    ['Très intense', 'Très intense : courses, endurance, concours complet']
+  ];
   var SEXES = ['', 'Hongre', 'Jument', 'Étalon'];
   var K_FICHES = 'ce_fiches_v1', K_CFG = 'ce_cfg_v1', K_BROUILLON = 'ce_brouillon_v1';
 
@@ -253,10 +272,23 @@
 
   /* ---------- Listes déroulantes ---------- */
   function remplir(sel, valeurs) {
-    sel.innerHTML = valeurs.map(function (v) { return '<option value="' + esc(v) + '">' + esc(v || '—') + '</option>'; }).join('');
+    sel.innerHTML = valeurs.map(function (v) {
+      var val = Array.isArray(v) ? v[0] : v, lib = Array.isArray(v) ? v[1] : v;
+      return '<option value="' + esc(val) + '">' + esc(lib || '—') + '</option>';
+    }).join('');
   }
   remplir($('#c-sexe'), SEXES);
   remplir($('#c-cat'), CATEGORIES);
+  remplir($('#c-act'), ACTIVITES);
+
+  /* ---------- Mois de gestation / de lactation ---------- */
+  function majMois() {
+    var cat = $('#c-cat').value, bloc = $('#bloc-mois');
+    if (cat === 'Jument gestante') { $('#lab-mois').textContent = 'Mois de gestation (1 à 11)'; bloc.hidden = false; }
+    else if (cat === 'Jument allaitante') { $('#lab-mois').textContent = 'Mois de lactation (1 à 6, jusqu\'au sevrage)'; bloc.hidden = false; }
+    else { bloc.hidden = true; $('#c-mois').value = ''; }
+  }
+  $('#c-cat').addEventListener('change', function () { majMois(); sauverBrouillon(); });
 
   /* ---------- Lignes d'alimentation ---------- */
   function ajouterLigne(v) {
@@ -313,6 +345,7 @@
     $$('#v-fiche [data-k]').forEach(function (el) { el.value = el.tagName === 'SELECT' ? el.options[0].value : ''; });
     $('#lignes').innerHTML = '';
     localStorage.removeItem(K_BROUILLON);
+    majMois();
     affichePoids();
     window.scrollTo(0, 0);
   }
@@ -446,6 +479,7 @@
   }
 
   function chargerPhotosBrouillon() {
+    if (!PHOTOS_ACTIVES) return;
     dbParFiche('brouillon').then(function (l) {
       photosBrouillon = (l || []).sort(function (a, b) { return a.ts - b.ts; });
       rendrePhotos();
@@ -478,7 +512,7 @@
     var fiche = {
       id: nouvelId(), creeLe: new Date().toISOString(), envoye: false,
       proprietaire: c.proprietaire.trim(), telephone: c.telephone.trim(), email: c.email.trim(),
-      cheval: c.cheval.trim(), age: num(c.age), sexe: c.sexe, race: c.race.trim(), activite: c.activite.trim(), categorie: c.categorie,
+      cheval: c.cheval.trim(), age: num(c.age), sexe: c.sexe, race: c.race.trim(), activite: c.activite, categorie: c.categorie, mois: num(c.mois),
       pt: pt, lc: lc, hg: num(c.hg), ruban: rub, diviseur: div, poids: p == null ? null : Math.round(p * 10) / 10,
       ecartPct: (p != null && rub > 0) ? Math.round((rub - p) / p * 1000) / 10 : null,
       aliments: c.aliments, notes: c.notes.trim()
@@ -608,9 +642,9 @@
   $('#btn-csv').addEventListener('click', function () {
     var l = lire(K_FICHES, []);
     if (!l.length) { toast('Aucune fiche à exporter.'); return; }
-    var ent = ['id', 'date', 'propriétaire', 'téléphone', 'e-mail', 'cheval', 'âge', 'sexe', 'race', 'activité', 'catégorie', 'PT (cm)', 'LC (cm)', 'garrot (cm)', 'ruban (kg)', 'diviseur', 'poids (kg)', 'écart ruban (%)', 'aliments', 'notes', 'envoyée', 'photos'];
+    var ent = ['id', 'date', 'propriétaire', 'téléphone', 'e-mail', 'cheval', 'âge', 'sexe', 'race', 'activité', 'catégorie', 'mois', 'PT (cm)', 'LC (cm)', 'garrot (cm)', 'ruban (kg)', 'diviseur', 'poids (kg)', 'écart ruban (%)', 'aliments', 'notes', 'envoyée', 'photos'];
     var lignes = [ent].concat(l.map(function (f) {
-      return [f.id, f.creeLe, f.proprietaire, f.telephone, f.email, f.cheval, f.age, f.sexe, f.race, f.activite, f.categorie, f.pt, f.lc, f.hg, f.ruban, f.diviseur, f.poids, f.ecartPct,
+      return [f.id, f.creeLe, f.proprietaire, f.telephone, f.email, f.cheval, f.age, f.sexe, f.race, f.activite, f.categorie, f.mois, f.pt, f.lc, f.hg, f.ruban, f.diviseur, f.poids, f.ecartPct,
         (f.aliments || []).map(function (a) { return a.nom + ' (' + (a.qte == null ? '?' : a.qte) + ' kg × ' + (a.rep == null ? '?' : a.rep) + '/j)'; }).join(' | '), f.notes, f.envoye ? 'oui' : 'non', (f.photos || []).length];
     }));
     var csv = lignes.map(function (r) { return r.map(function (v) { v = v == null ? '' : String(v); return '"' + v.replace(/"/g, '""') + '"'; }).join(';'); }).join('\r\n');
@@ -626,7 +660,7 @@
   function afficheReglages() {
     var c = cfg();
     $('#g-url').value = c.url; $('#g-cle').value = c.cle; $('#g-div').value = String(c.diviseur).replace('.', ',');
-    $('#version').textContent = 'Version ' + VERSION;
+    $('#version').textContent = 'Version ' + VERSION + (PHOTOS_ACTIVES ? '' : ' (sans photos)');
   }
   $('#btn-cfg').addEventListener('click', function () {
     var d = num($('#g-div').value);
@@ -658,7 +692,8 @@
   });
 
   /* ---------- Démarrage ---------- */
-  restaurerBrouillon(); chargerPhotosBrouillon();
+  if (!PHOTOS_ACTIVES) $('#carte-photos').hidden = true;
+  restaurerBrouillon(); majMois(); chargerPhotosBrouillon();
   affichePoids(); majListeAliments(); rendreListe(); majReseau(); afficheReglages();
   if (navigator.storage && navigator.storage.persist) { navigator.storage.persist().catch(function () {}); }
   if ('serviceWorker' in navigator) { window.addEventListener('load', function () { navigator.serviceWorker.register('sw.js').catch(function () {}); }); }
