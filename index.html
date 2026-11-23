@@ -1,0 +1,493 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#2f6b4f">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<title>Consultation équine</title>
+<style>
+  :root { --vert:#2f6b4f; --vert-clair:#e6f0ea; --gris:#5b6470; --bord:#cfd6dc; --alerte:#b3261e; --ok:#1b7a43; --fond:#f4f6f5; }
+  * { box-sizing:border-box; }
+  html { -webkit-text-size-adjust:100%; }
+  body { margin:0; font:17px/1.35 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; background:var(--fond); color:#1d2328; padding-bottom:84px; }
+  header { position:sticky; top:0; z-index:5; background:var(--vert); color:#fff; display:flex; align-items:center; justify-content:space-between; padding:12px 16px; }
+  header h1 { font-size:19px; margin:0; font-weight:600; }
+  .pill { font-size:13px; padding:4px 10px; border-radius:999px; background:rgba(255,255,255,.2); }
+  .pill.hors { background:#ffd9a8; color:#5a3300; }
+  main { max-width:640px; margin:0 auto; padding:12px; }
+  .vue { display:none; }
+  .vue.actif { display:block; }
+  .carte { background:#fff; border:1px solid var(--bord); border-radius:14px; padding:14px; margin-bottom:12px; }
+  .carte h2 { font-size:15px; text-transform:uppercase; letter-spacing:.04em; color:var(--vert); margin:0 0 10px; }
+  label { display:block; font-size:14px; color:var(--gris); margin:10px 0 4px; }
+  input, select, textarea { width:100%; min-height:48px; font:inherit; padding:10px 12px; border:1px solid var(--bord); border-radius:10px; background:#fff; color:inherit; }
+  textarea { min-height:110px; }
+  input:focus, select:focus, textarea:focus { outline:3px solid #9fc9b3; border-color:var(--vert); }
+  .duo { display:grid; grid-template-columns:1fr 1fr; gap:0 10px; align-items:end; }
+  .duo > div > label:first-child { margin-top:10px; }
+  button { font:inherit; min-height:52px; padding:0 18px; border-radius:12px; border:1px solid var(--vert); background:#fff; color:var(--vert); font-weight:600; cursor:pointer; }
+  button.plein { background:var(--vert); color:#fff; width:100%; margin-top:6px; }
+  button.danger { color:var(--alerte); border-color:var(--alerte); }
+  button.petit { min-height:44px; padding:0 14px; font-size:15px; }
+  button:disabled { opacity:.5; }
+  .resultat { background:var(--vert-clair); border-radius:12px; padding:12px 14px; margin-top:14px; }
+  .resultat .gros { font-size:38px; font-weight:700; color:var(--vert); line-height:1.1; }
+  .resultat .detail { font-size:15px; color:var(--gris); margin-top:4px; }
+  .resultat .ecart { font-size:16px; margin-top:6px; }
+  .avert { color:var(--alerte); font-size:14px; margin-top:6px; }
+  .ligne { border:1px dashed var(--bord); border-radius:12px; padding:10px; margin-bottom:10px; }
+  .ligne .trio { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .ligne .sup { margin-top:8px; display:flex; justify-content:flex-end; }
+  .fiche { border:1px solid var(--bord); border-radius:12px; padding:12px; margin-bottom:10px; background:#fff; }
+  .fiche .t { font-weight:600; }
+  .fiche .s { color:var(--gris); font-size:14px; }
+  .badge { display:inline-block; font-size:12px; padding:2px 8px; border-radius:999px; margin-left:6px; }
+  .badge.att { background:#ffe7c2; color:#6b3d00; }
+  .badge.env { background:#d6f0df; color:#14532d; }
+  .actions { display:flex; gap:10px; flex-wrap:wrap; margin:10px 0; }
+  .actions button { flex:1 1 140px; }
+  nav { position:fixed; left:0; right:0; bottom:0; z-index:6; display:grid; grid-template-columns:repeat(3,1fr); background:#fff; border-top:1px solid var(--bord); padding-bottom:env(safe-area-inset-bottom); }
+  nav button { border:0; border-radius:0; min-height:62px; background:#fff; color:var(--gris); font-size:15px; }
+  nav button.actif { color:var(--vert); box-shadow:inset 0 3px 0 var(--vert); }
+  #toast { position:fixed; left:12px; right:12px; bottom:76px; z-index:9; background:#1d2328; color:#fff; padding:12px 14px; border-radius:12px; display:none; font-size:15px; }
+  .note { font-size:14px; color:var(--gris); margin:6px 0 0; }
+  .vide { color:var(--gris); text-align:center; padding:24px 8px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Consultation équine</h1>
+  <span id="reseau" class="pill">…</span>
+</header>
+
+<main>
+
+  <!-- ===== NOUVELLE FICHE ===== -->
+  <section id="v-fiche" class="vue actif">
+
+    <div class="carte">
+      <h2>Propriétaire</h2>
+      <label for="p-nom">Nom</label>
+      <input id="p-nom" data-k="proprietaire" autocomplete="off">
+      <label for="p-tel">Téléphone</label>
+      <input id="p-tel" data-k="telephone" type="tel" autocomplete="off">
+      <label for="p-mail">E-mail</label>
+      <input id="p-mail" data-k="email" type="email" autocomplete="off">
+    </div>
+
+    <div class="carte">
+      <h2>Cheval</h2>
+      <label for="c-nom">Nom du cheval</label>
+      <input id="c-nom" data-k="cheval" autocomplete="off">
+      <div class="duo">
+        <div>
+          <label for="c-age">Âge (ans)</label>
+          <input id="c-age" data-k="age" inputmode="decimal" autocomplete="off">
+        </div>
+        <div>
+          <label for="c-sexe">Sexe</label>
+          <select id="c-sexe" data-k="sexe"></select>
+        </div>
+      </div>
+      <label for="c-race">Race</label>
+      <input id="c-race" data-k="race" autocomplete="off">
+      <label for="c-act">Activité</label>
+      <input id="c-act" data-k="activite" list="liste-activites" autocomplete="off" placeholder="Loisir, sport, élevage…">
+      <datalist id="liste-activites">
+        <option value="Repos"><option value="Loisir"><option value="Sport léger">
+        <option value="Sport intensif"><option value="Élevage"><option value="Retraite">
+      </datalist>
+      <label for="c-cat">Catégorie (pour les besoins)</label>
+      <select id="c-cat" data-k="categorie"></select>
+    </div>
+
+    <div class="carte">
+      <h2>Mesures</h2>
+      <div class="duo">
+        <div>
+          <label for="m-pt">Périmètre thoracique (cm)</label>
+          <input id="m-pt" data-k="pt" inputmode="decimal" autocomplete="off">
+        </div>
+        <div>
+          <label for="m-lc">Longueur (cm)</label>
+          <input id="m-lc" data-k="lc" inputmode="decimal" autocomplete="off">
+        </div>
+        <div>
+          <label for="m-hg">Hauteur au garrot (cm)</label>
+          <input id="m-hg" data-k="hg" inputmode="decimal" autocomplete="off">
+        </div>
+        <div>
+          <label for="m-rub">Valeur du ruban (kg)</label>
+          <input id="m-rub" data-k="ruban" inputmode="decimal" autocomplete="off">
+        </div>
+      </div>
+
+      <div class="resultat" id="resultat">
+        <div class="gros" id="r-poids">— kg</div>
+        <div class="detail" id="r-formule">Entre le périmètre et la longueur.</div>
+        <div class="ecart" id="r-ecart"></div>
+        <div class="avert" id="r-avert"></div>
+      </div>
+      <p class="note">La hauteur au garrot est enregistrée mais n'entre pas dans la formule du poids.</p>
+    </div>
+
+    <div class="carte">
+      <h2>Alimentation actuelle</h2>
+      <div id="lignes"></div>
+      <datalist id="liste-aliments"></datalist>
+      <button type="button" id="btn-ajout" class="petit">+ Ajouter un aliment</button>
+      <p class="note">Quantité en kg par repas, nombre de repas par jour.</p>
+    </div>
+
+    <div class="carte">
+      <h2>Notes</h2>
+      <textarea id="notes" data-k="notes" placeholder="Observations (tu peux dicter avec le micro du clavier)"></textarea>
+    </div>
+
+    <button type="button" id="btn-enreg" class="plein">Enregistrer la fiche</button>
+    <div class="actions"><button type="button" id="btn-nouvelle" class="danger">Vider le formulaire</button></div>
+  </section>
+
+  <!-- ===== LISTE DES FICHES ===== -->
+  <section id="v-liste" class="vue">
+    <div class="actions">
+      <button type="button" id="btn-envoyer" class="plein" style="margin:0">Envoyer maintenant</button>
+      <button type="button" id="btn-csv">Exporter en CSV</button>
+    </div>
+    <p class="note" id="liste-etat"></p>
+    <div id="liste"></div>
+  </section>
+
+  <!-- ===== RÉGLAGES ===== -->
+  <section id="v-reglages" class="vue">
+    <div class="carte">
+      <h2>Envoi vers Google Sheet</h2>
+      <label for="g-url">Adresse du script (URL se terminant par /exec)</label>
+      <input id="g-url" autocomplete="off" autocapitalize="off" spellcheck="false">
+      <label for="g-cle">Clé secrète (la même que dans le script)</label>
+      <input id="g-cle" autocomplete="off" autocapitalize="off" spellcheck="false">
+      <div class="actions">
+        <button type="button" id="btn-test">Tester la connexion</button>
+        <button type="button" id="btn-cfg" class="plein" style="margin:0">Enregistrer</button>
+      </div>
+    </div>
+    <div class="carte">
+      <h2>Formule du poids</h2>
+      <p style="margin:0 0 8px">poids (kg) = (PT × PT × LC) ÷ diviseur</p>
+      <label for="g-div">Diviseur</label>
+      <input id="g-div" inputmode="decimal" autocomplete="off">
+      <p class="note">Valeur du client : 10815. Chaque fiche garde le diviseur utilisé.</p>
+    </div>
+    <p class="note" id="version"></p>
+  </section>
+
+</main>
+
+<nav>
+  <button type="button" data-vue="v-fiche" class="actif">Nouvelle fiche</button>
+  <button type="button" data-vue="v-liste" id="nav-liste">Fiches</button>
+  <button type="button" data-vue="v-reglages">Réglages</button>
+</nav>
+
+<div id="toast" role="status"></div>
+
+<script>
+(function () {
+  'use strict';
+
+  var VERSION = '1.0';
+  var CATEGORIES = ['Entretien', 'Poulain', 'Senior', 'Jument gestante', 'Autre'];
+  var SEXES = ['', 'Hongre', 'Jument', 'Étalon'];
+  var K_FICHES = 'ce_fiches_v1', K_CFG = 'ce_cfg_v1', K_BROUILLON = 'ce_brouillon_v1';
+
+  function $(s) { return document.querySelector(s); }
+  function $$(s) { return Array.prototype.slice.call(document.querySelectorAll(s)); }
+  function num(v) { var n = parseFloat(String(v == null ? '' : v).replace(',', '.')); return isFinite(n) ? n : null; }
+  function lire(k, def) { try { var v = localStorage.getItem(k); return v ? JSON.parse(v) : def; } catch (e) { return def; } }
+  function ecrire(k, v, silencieux) {
+    try { localStorage.setItem(k, JSON.stringify(v)); return true; }
+    catch (e) { if (!silencieux) alert('Impossible d\'écrire dans la mémoire du téléphone. Exporte en CSV et libère de la place.'); return false; }
+  }
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]; }); }
+  function fr(n, d) { return n.toLocaleString('fr-BE', { minimumFractionDigits: d || 0, maximumFractionDigits: d || 0 }); }
+
+  /* ---------- Calcul du poids ---------- */
+  function calculPoids(pt, lc, div) {
+    if (!(pt > 0 && lc > 0 && div > 0)) return null;
+    return (pt * pt * lc) / div;
+  }
+
+  /* ---------- Réglages ---------- */
+  function cfg() {
+    var c = lire(K_CFG, {});
+    return { url: c.url || '', cle: c.cle || '', diviseur: num(c.diviseur) > 0 ? num(c.diviseur) : 10815 };
+  }
+
+  /* ---------- Toast ---------- */
+  var toastTimer;
+  function toast(msg, ms) {
+    var t = $('#toast'); t.textContent = msg; t.style.display = 'block';
+    clearTimeout(toastTimer); toastTimer = setTimeout(function () { t.style.display = 'none'; }, ms || 3500);
+  }
+
+  /* ---------- Listes déroulantes ---------- */
+  function remplir(sel, valeurs) {
+    sel.innerHTML = valeurs.map(function (v) { return '<option value="' + esc(v) + '">' + esc(v || '—') + '</option>'; }).join('');
+  }
+  remplir($('#c-sexe'), SEXES);
+  remplir($('#c-cat'), CATEGORIES);
+
+  /* ---------- Lignes d'alimentation ---------- */
+  function ajouterLigne(v) {
+    v = v || {};
+    var d = document.createElement('div');
+    d.className = 'ligne';
+    d.innerHTML =
+      '<label>Aliment</label><input class="a-nom" list="liste-aliments" autocomplete="off" value="' + esc(v.nom || '') + '">' +
+      '<div class="trio"><div><label>Quantité (kg / repas)</label><input class="a-qte" inputmode="decimal" autocomplete="off" value="' + esc(v.qte == null ? '' : v.qte) + '"></div>' +
+      '<div><label>Repas par jour</label><input class="a-rep" inputmode="decimal" autocomplete="off" value="' + esc(v.rep == null ? '' : v.rep) + '"></div></div>' +
+      '<div class="sup"><button type="button" class="petit danger a-suppr">Retirer</button></div>';
+    $('#lignes').appendChild(d);
+    return d;
+  }
+  $('#btn-ajout').addEventListener('click', function () { ajouterLigne().querySelector('.a-nom').focus(); });
+  $('#lignes').addEventListener('click', function (e) {
+    if (e.target.classList.contains('a-suppr')) { e.target.closest('.ligne').remove(); sauverBrouillon(); }
+  });
+
+  function lignesAliments() {
+    return $$('#lignes .ligne').map(function (l) {
+      return { nom: l.querySelector('.a-nom').value.trim(), qte: num(l.querySelector('.a-qte').value), rep: num(l.querySelector('.a-rep').value) };
+    }).filter(function (a) { return a.nom; });
+  }
+
+  function majListeAliments() {
+    var vus = {}, out = [];
+    lire(K_FICHES, []).forEach(function (f) { (f.aliments || []).forEach(function (a) { if (a.nom && !vus[a.nom.toLowerCase()]) { vus[a.nom.toLowerCase()] = 1; out.push(a.nom); } }); });
+    $('#liste-aliments').innerHTML = out.sort().map(function (n) { return '<option value="' + esc(n) + '">'; }).join('');
+  }
+
+  /* ---------- Collecte / restauration du formulaire ---------- */
+  function collecte() {
+    var o = {};
+    $$('#v-fiche [data-k]').forEach(function (el) { o[el.getAttribute('data-k')] = el.value; });
+    o.aliments = lignesAliments();
+    return o;
+  }
+
+  function sauverBrouillon() {
+    ecrire(K_BROUILLON, { champs: collecte(), lignes: $$('#lignes .ligne').map(function (l) {
+      return { nom: l.querySelector('.a-nom').value, qte: l.querySelector('.a-qte').value, rep: l.querySelector('.a-rep').value };
+    }) }, true);
+  }
+
+  function restaurerBrouillon() {
+    var b = lire(K_BROUILLON, null);
+    if (!b) return;
+    $$('#v-fiche [data-k]').forEach(function (el) { var k = el.getAttribute('data-k'); if (b.champs && b.champs[k] != null) el.value = b.champs[k]; });
+    (b.lignes || []).forEach(ajouterLigne);
+  }
+
+  function viderFormulaire() {
+    $$('#v-fiche [data-k]').forEach(function (el) { el.value = el.tagName === 'SELECT' ? el.options[0].value : ''; });
+    $('#lignes').innerHTML = '';
+    localStorage.removeItem(K_BROUILLON);
+    affichePoids();
+    window.scrollTo(0, 0);
+  }
+
+  /* ---------- Affichage du poids en direct ---------- */
+  function affichePoids() {
+    var pt = num($('#m-pt').value), lc = num($('#m-lc').value), rub = num($('#m-rub').value), div = cfg().diviseur;
+    var p = calculPoids(pt, lc, div);
+    var avert = [];
+    if (pt != null && (pt < 50 || pt > 250)) avert.push('Périmètre inhabituel : vérifie qu\'il est en cm.');
+    if (lc != null && (lc < 50 || lc > 230)) avert.push('Longueur inhabituelle : vérifie qu\'elle est en cm.');
+    $('#r-avert').textContent = avert.join(' ');
+    if (p == null) {
+      $('#r-poids').textContent = '— kg';
+      $('#r-formule').textContent = 'Entre le périmètre et la longueur.';
+      $('#r-ecart').textContent = '';
+      return null;
+    }
+    $('#r-poids').textContent = fr(Math.round(p)) + ' kg';
+    $('#r-formule').textContent = '(' + fr(pt, pt % 1 ? 1 : 0) + ' × ' + fr(pt, pt % 1 ? 1 : 0) + ' × ' + fr(lc, lc % 1 ? 1 : 0) + ') ÷ ' + fr(div, div % 1 ? 2 : 0) + ' = ' + fr(p, 1) + ' kg';
+    if (rub > 0) {
+      var e = (rub - p) / p * 100, dk = rub - p;
+      $('#r-ecart').textContent = 'Ruban : ' + fr(rub, rub % 1 ? 1 : 0) + ' kg → écart ' + (e >= 0 ? '+' : '') + fr(e, 1) + ' % (' + (dk >= 0 ? '+' : '') + fr(Math.round(dk)) + ' kg)';
+    } else {
+      $('#r-ecart').textContent = '';
+    }
+    return p;
+  }
+
+  $('#v-fiche').addEventListener('input', function () { affichePoids(); sauverBrouillon(); });
+  $('#v-fiche').addEventListener('change', sauverBrouillon);
+
+  /* ---------- Enregistrement d'une fiche ---------- */
+  function nouvelId() { return 'F' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
+
+  $('#btn-enreg').addEventListener('click', function () {
+    var c = collecte();
+    if (!c.cheval.trim()) { toast('Indique au moins le nom du cheval.'); $('#c-nom').focus(); return; }
+    var div = cfg().diviseur, pt = num(c.pt), lc = num(c.lc), rub = num(c.ruban);
+    var p = calculPoids(pt, lc, div);
+    var fiche = {
+      id: nouvelId(), creeLe: new Date().toISOString(), envoye: false,
+      proprietaire: c.proprietaire.trim(), telephone: c.telephone.trim(), email: c.email.trim(),
+      cheval: c.cheval.trim(), age: num(c.age), sexe: c.sexe, race: c.race.trim(), activite: c.activite.trim(), categorie: c.categorie,
+      pt: pt, lc: lc, hg: num(c.hg), ruban: rub, diviseur: div, poids: p == null ? null : Math.round(p * 10) / 10,
+      ecartPct: (p != null && rub > 0) ? Math.round((rub - p) / p * 1000) / 10 : null,
+      aliments: c.aliments, notes: c.notes.trim()
+    };
+    var liste = lire(K_FICHES, []);
+    liste.unshift(fiche);
+    if (!ecrire(K_FICHES, liste)) return;
+    viderFormulaire();
+    majListeAliments(); rendreListe();
+    toast('Fiche enregistrée sur le téléphone.');
+    envoyer(true);
+  });
+
+  $('#btn-nouvelle').addEventListener('click', function () {
+    if (confirm('Vider tout le formulaire en cours ?')) viderFormulaire();
+  });
+
+  /* ---------- Liste des fiches ---------- */
+  function enAttente() { return lire(K_FICHES, []).filter(function (f) { return !f.envoye; }).length; }
+
+  function rendreListe() {
+    var l = lire(K_FICHES, []);
+    var n = enAttente();
+    $('#nav-liste').textContent = 'Fiches' + (n ? ' (' + n + ')' : '');
+    $('#liste-etat').textContent = l.length
+      ? (n ? n + ' fiche(s) en attente d\'envoi. ' : 'Toutes les fiches sont envoyées. ') + 'Garde l\'application installée tant qu\'il reste des fiches en attente.'
+      : '';
+    if (!l.length) { $('#liste').innerHTML = '<div class="vide">Aucune fiche enregistrée.</div>'; return; }
+    $('#liste').innerHTML = l.map(function (f) {
+      var d = new Date(f.creeLe);
+      var date = d.toLocaleDateString('fr-BE') + ' ' + d.toLocaleTimeString('fr-BE', { hour: '2-digit', minute: '2-digit' });
+      return '<div class="fiche"><div class="t">' + esc(f.cheval) + (f.poids != null ? ' · ' + fr(Math.round(f.poids)) + ' kg' : '') +
+        '<span class="badge ' + (f.envoye ? 'env">envoyée' : 'att">en attente') + '</span></div>' +
+        '<div class="s">' + esc(f.proprietaire || 'Propriétaire non renseigné') + ' · ' + esc(f.categorie || '') + ' · ' + date + '</div>' +
+        (f.erreur && !f.envoye ? '<div class="avert">Dernier essai : ' + esc(f.erreur) + '</div>' : '') +
+        '<div class="actions"><button type="button" class="petit danger" data-suppr="' + esc(f.id) + '">Supprimer</button></div></div>';
+    }).join('');
+  }
+
+  $('#liste').addEventListener('click', function (e) {
+    var id = e.target.getAttribute('data-suppr');
+    if (!id) return;
+    var l = lire(K_FICHES, []);
+    var f = l.filter(function (x) { return x.id === id; })[0];
+    var msg = f && !f.envoye ? 'Cette fiche n\'est PAS encore envoyée. La supprimer quand même ?' : 'Supprimer cette fiche du téléphone ?';
+    if (confirm(msg)) { ecrire(K_FICHES, l.filter(function (x) { return x.id !== id; })); majListeAliments(); rendreListe(); }
+  });
+
+  /* ---------- Envoi vers Google Sheet ---------- */
+  var enCours = false;
+  async function envoyer(discret) {
+    if (enCours) return;
+    var c = cfg();
+    if (!c.url) { if (!discret) toast('Renseigne d\'abord l\'adresse du script dans Réglages.'); return; }
+    if (!navigator.onLine) { if (!discret) toast('Pas de réseau. Les fiches restent sur le téléphone.'); return; }
+    enCours = true;
+    var ok = 0, ko = 0;
+    try {
+      var liste = lire(K_FICHES, []);
+      for (var i = 0; i < liste.length; i++) {
+        var f = liste[i];
+        if (f.envoye) continue;
+        try {
+          var r = await fetch(c.url, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ cle: c.cle, fiche: f }) });
+          var j = await r.json();
+          if (j && j.ok) { f.envoye = true; delete f.erreur; ok++; }
+          else { f.erreur = (j && j.erreur) || 'réponse inattendue'; ko++; }
+        } catch (e) { f.erreur = 'réseau indisponible'; ko++; break; }
+        ecrire(K_FICHES, liste, true);
+      }
+      ecrire(K_FICHES, liste, true);
+    } finally { enCours = false; }
+    rendreListe();
+    if (ok) toast(ok + ' fiche(s) envoyée(s) vers le Sheet.');
+    else if (ko && !discret) toast('Envoi impossible pour le moment.');
+  }
+  $('#btn-envoyer').addEventListener('click', function () { envoyer(false); });
+  window.addEventListener('online', function () { majReseau(); envoyer(true); });
+  window.addEventListener('offline', majReseau);
+
+  function majReseau() {
+    var p = $('#reseau');
+    p.textContent = navigator.onLine ? 'En ligne' : 'Hors ligne';
+    p.className = 'pill' + (navigator.onLine ? '' : ' hors');
+  }
+
+  /* ---------- Export CSV ---------- */
+  $('#btn-csv').addEventListener('click', function () {
+    var l = lire(K_FICHES, []);
+    if (!l.length) { toast('Aucune fiche à exporter.'); return; }
+    var ent = ['id', 'date', 'propriétaire', 'téléphone', 'e-mail', 'cheval', 'âge', 'sexe', 'race', 'activité', 'catégorie', 'PT (cm)', 'LC (cm)', 'garrot (cm)', 'ruban (kg)', 'diviseur', 'poids (kg)', 'écart ruban (%)', 'aliments', 'notes', 'envoyée'];
+    var lignes = [ent].concat(l.map(function (f) {
+      return [f.id, f.creeLe, f.proprietaire, f.telephone, f.email, f.cheval, f.age, f.sexe, f.race, f.activite, f.categorie, f.pt, f.lc, f.hg, f.ruban, f.diviseur, f.poids, f.ecartPct,
+        (f.aliments || []).map(function (a) { return a.nom + ' (' + (a.qte == null ? '?' : a.qte) + ' kg × ' + (a.rep == null ? '?' : a.rep) + '/j)'; }).join(' | '), f.notes, f.envoye ? 'oui' : 'non'];
+    }));
+    var csv = lignes.map(function (r) { return r.map(function (v) { v = v == null ? '' : String(v); return '"' + v.replace(/"/g, '""') + '"'; }).join(';'); }).join('\r\n');
+    var blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' });
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'consultations-' + new Date().toISOString().slice(0, 10) + '.csv';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function () { URL.revokeObjectURL(a.href); }, 5000);
+  });
+
+  /* ---------- Réglages ---------- */
+  function afficheReglages() {
+    var c = cfg();
+    $('#g-url').value = c.url; $('#g-cle').value = c.cle; $('#g-div').value = String(c.diviseur).replace('.', ',');
+    $('#version').textContent = 'Version ' + VERSION;
+  }
+  $('#btn-cfg').addEventListener('click', function () {
+    var d = num($('#g-div').value);
+    if (!(d > 0)) { toast('Le diviseur doit être un nombre positif.'); return; }
+    ecrire(K_CFG, { url: $('#g-url').value.trim(), cle: $('#g-cle').value.trim(), diviseur: d });
+    affichePoids(); toast('Réglages enregistrés.');
+    envoyer(true);
+  });
+  $('#btn-test').addEventListener('click', async function () {
+    var url = $('#g-url').value.trim(), cle = $('#g-cle').value.trim();
+    if (!url) { toast('Renseigne l\'adresse du script.'); return; }
+    if (!navigator.onLine) { toast('Pas de réseau : le test demande une connexion.'); return; }
+    try {
+      var r = await fetch(url + (url.indexOf('?') < 0 ? '?' : '&') + 'cle=' + encodeURIComponent(cle));
+      var j = await r.json();
+      toast(j && j.ok ? (j.cleOk ? 'Connexion réussie, clé valide.' : 'Script joint, mais la clé ne correspond pas.') : 'Réponse inattendue du script.', 5000);
+    } catch (e) { toast('Script injoignable : vérifie l\'adresse et le déploiement.', 5000); }
+  });
+
+  /* ---------- Navigation ---------- */
+  $$('nav button').forEach(function (b) {
+    b.addEventListener('click', function () {
+      $$('nav button').forEach(function (x) { x.classList.toggle('actif', x === b); });
+      $$('.vue').forEach(function (v) { v.classList.toggle('actif', v.id === b.getAttribute('data-vue')); });
+      if (b.getAttribute('data-vue') === 'v-liste') rendreListe();
+      if (b.getAttribute('data-vue') === 'v-reglages') afficheReglages();
+      window.scrollTo(0, 0);
+    });
+  });
+
+  /* ---------- Démarrage ---------- */
+  restaurerBrouillon();
+  affichePoids(); majListeAliments(); rendreListe(); majReseau(); afficheReglages();
+  if (navigator.storage && navigator.storage.persist) { navigator.storage.persist().catch(function () {}); }
+  if ('serviceWorker' in navigator) { window.addEventListener('load', function () { navigator.serviceWorker.register('sw.js').catch(function () {}); }); }
+  envoyer(true);
+
+  // Pour les tests automatiques
+  window.__ce = { calculPoids: calculPoids };
+})();
+</script>
+</body>
+</html>
